@@ -113,6 +113,7 @@ jobs:
           # Run SonarCloud analysis
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             sonar-scanner \
+              -Dsonar.host.url=https://sonarcloud.io \
               -Dsonar.projectKey=fgajic_burgerapp \
               -Dsonar.organization=fgajic \
               -Dsonar.sources=backend/src,frontend/src \
@@ -127,6 +128,7 @@ jobs:
               -Dsonar.login="${{ secrets.SONAR_TOKEN }}"
           else
             sonar-scanner \
+              -Dsonar.host.url=https://sonarcloud.io \
               -Dsonar.projectKey=fgajic_burgerapp \
               -Dsonar.organization=fgajic \
               -Dsonar.sources=backend/src,frontend/src \
