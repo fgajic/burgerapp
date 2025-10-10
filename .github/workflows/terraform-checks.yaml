@@ -20,6 +20,10 @@ jobs:
   terraform-plan:
     name: Terraform Plan
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
     env:
       ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
       ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
@@ -61,14 +65,6 @@ jobs:
           expand-comment: true
           hide-previous-comments: true
           comment-header: "Terraform Plan changes for staging environment"
-
-      - name: Upload plan artifact
-        if: github.event_name == 'push'
-        uses: actions/upload-artifact@v4
-        with:
-          name: terraform-plan
-          path: Infra/IaaC/3_realms/bourgerapp/staging/terraform.tfplan
-          retention-days: 1
 
       - name: Clean up
         run: rm -rf terraform-plan.json
