@@ -90,17 +90,6 @@ jobs:
             exit 0
           fi
 
-      - name: Test backend
-        working-directory: backend
-        run: |
-          mvn clean test
-
-      - name: Test frontend
-        working-directory: frontend
-        run: |
-          npm ci
-          npm run test:coverage
-
       - name: Install SonarCloud scanner
         run: |
           wget https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-5.0.1.3006-linux.zip
@@ -110,6 +99,16 @@ jobs:
 
       - name: Building and testing with sonar
         run: |
+          # Run backend tests with coverage
+          cd backend
+          mvn clean test jacoco:report
+          cd ..
+          
+          # Run frontend tests with coverage
+          cd frontend
+          npm ci
+          npm run test:coverage
+          cd ..
           
           # Run SonarCloud analysis
           if [ "${{ github.event_name }}" = "pull_request" ]; then
