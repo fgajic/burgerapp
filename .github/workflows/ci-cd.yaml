@@ -186,13 +186,10 @@ jobs:
           docker push filipbourgerappacr.azurecr.io/${{ matrix.spec.image_name }}:latest
         
 
-  # deploy:
-  #   needs: [build-push]
-  #   if: ${{ github.ref == 'refs/heads/master' }}
-  #   name: Deploying ${{ github.sha }} to staging environment
-  #   uses: ./.github/workflows/deploy.yaml
-  #   with:
-  #     environment: staging
-  #     image_tag: ${{ github.sha }}
-  #   secrets:
-  #     inherit
+  deploy:
+    needs: [build-push]
+    if: ${{ github.ref == 'refs/heads/master' }}
+    name: Deploying to staging environment
+    uses: ./.github/workflows/deploy.yaml
+    secrets:
+      inherit

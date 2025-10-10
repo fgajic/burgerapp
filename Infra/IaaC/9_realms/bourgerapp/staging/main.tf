@@ -96,7 +96,7 @@ module "container-apps" {
       name                     = "backend"
       image_repository         = "burgerbuilder-backend"
       registry                 = "filipbourgerappacr.azurecr.io"
-      image_tag                = "v1.0.0"
+      image_tag                = var.IMAGE_TAG
       cpu                      = 1
       port                     = 8080
       session_affinity_enabled = true
@@ -117,7 +117,7 @@ module "container-apps" {
       name                    = "frontend"
       image_repository        = "burgerbuilder-frontend"
       registry                = "filipbourgerappacr.azurecr.io"
-      image_tag               = "v1.0.0"
+      image_tag               = var.IMAGE_TAG
       cpu                     = 0.25
       port                    = 80
       enable_session_affinity = false
