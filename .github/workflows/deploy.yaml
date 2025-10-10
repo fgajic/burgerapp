@@ -28,14 +28,19 @@ jobs:
         with:
           terraform_version: 1.9.5
 
-      - name: Terraform apply for staging 
+      - name: Terraform Plan
         run: |
           terraform init
-          terraform apply -auto-approve=true -lock-timeout=30s -input=false
+          terraform validate
+          terraform plan -no-color -input=false -lock=false -out terraform.tfplan
+
+      - name: Terraform Apply
+        run: |
+          terraform apply -auto-approve=true -lock-timeout=30s -input=false terraform.tfplan
 
       - name: Write apply success to summary
         run: echo "### Deployment of  staging successful" >> $"GITHUB_STEP_SUMMARY"
 
-      - name: Clean up after plan
+      - name: Clean up
         run: rm -rf terraform-plan.json terraform.tfplan
           

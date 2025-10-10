@@ -187,7 +187,7 @@ jobs:
         
 
   deploy:
-    needs: [build-push]
+    needs: [code-quality-analysis, build-push]
     if: ${{ github.ref == 'refs/heads/master' }}
     name: Deploying to staging environment
     uses: ./.github/workflows/deploy.yaml
