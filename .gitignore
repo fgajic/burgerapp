@@ -28,3 +28,7 @@ yarn-error.log*
 **/**/target/
 **/**/*.tfvars
 
+# GitHub Workflows
+.github/workflows/deploy.yaml
+.github/workflows/terraform-checks.yaml
+
