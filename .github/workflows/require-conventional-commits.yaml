@@ -6,6 +6,11 @@ on:
       - synchronize
       - reopened
       - edited
+
+permissions:
+  pull-requests: write
+  contents: read
+
 jobs:
   validate-pr-title:
     runs-on: ubuntu-latest
