@@ -1,286 +1,497 @@
-# Burger Builder Application
+# Burger App - Architecture Diagrams
 
-A full-stack web application for building and ordering custom burgers with a modern React frontend and Spring Boot backend API.
+## Overview
 
-## Project Structure
+The Burger App is a full-stack web application deployed on Azure Cloud (UK South region) using modern cloud-native architecture patterns. The solution consists of:
 
-```
-capstone_project_ih/
-├── frontend/                 # React + TypeScript + Vite frontend
-│   ├── src/
-│   │   ├── components/      # React components
-│   │   ├── context/         # React Context providers
-│   │   ├── services/        # API service layer
-│   │   ├── types/           # TypeScript type definitions
-│   │   └── utils/           # Utility functions
-│   ├── public/              # Static assets
-│   ├── package.json         # Frontend dependencies
-│   ├── vite.config.ts       # Vite configuration
-│   ├── nginx.conf           # Nginx configuration for production
-│   └── README.md            # Frontend-specific documentation
-├── backend/                 # Spring Boot REST API
-│   ├── src/main/java/com/burgerbuilder/
-│   │   ├── controller/      # REST controllers
-│   │   ├── service/         # Business logic services
-│   │   ├── repository/      # Data access layer
-│   │   ├── entity/          # JPA entities
-│   │   ├── dto/             # Data transfer objects
-│   │   ├── exception/       # Custom exception handling
-│   │   └── config/          # Configuration classes
-│   ├── src/main/resources/
-│   │   ├── application.properties          # Default configuration
-│   │   ├── application-docker.properties   # Docker/PostgreSQL config
-│   │   ├── application-azure.properties    # Azure SQL config
-│   │   ├── schema.sql                      # Database schema
-│   │   └── data.sql                        # Initial data
-│   ├── pom.xml              # Maven dependencies and build config
-│   └── TESTING.md           # Backend testing documentation
-├── environment.env.example  # Environment variables template
-└── environment.env          # Environment variables (create from example)
-```
+- **Frontend**: React SPA with TypeScript and Vite
+- **Backend**: Spring Boot REST API (Java 21)
+- **Database**: PostgreSQL Flexible Server
+- **Infrastructure**: Terraform-managed Azure resources
+- **CI/CD**: GitHub Actions pipelines
 
-## Frontend Application
+---
 
-### Tech Stack
+## 1. High-Level Architecture
 
-- **Framework**: React 19.1.1
-- **Language**: TypeScript 5.8.3
-- **Build Tool**: Vite 7.1.7
-- **Routing**: React Router DOM 7.9.3
-- **HTTP Client**: Axios 1.12.2
-- **Testing**: Vitest 1.0.4 + Testing Library
-- **Linting**: ESLint 9.36.0
-- **CSS**: Vanilla CSS with CSS modules
+![High Level Architecture](high_level_architecture.png)
 
-### Key Features
+### Description
+This diagram shows the overall system architecture from a 10,000-foot view. It illustrates how customers interact with the application through the internet, how traffic flows through Azure Application Gateway, and how the containerized applications communicate with the database and monitoring services.
 
-- Interactive burger builder with drag-and-drop ingredients
-- Shopping cart management with session persistence
-- Order creation and tracking
-- Order history viewing
-- Responsive design with modern UI/UX
-- Real-time API integration
-- Comprehensive testing coverage
+### Key Components:
+- **Users**: External customers accessing the burger builder application
+- **Application Gateway**: Azure's Layer 7 load balancer handling HTTP/HTTPS traffic
+- **Frontend Container**: React SPA served by Nginx
+- **Backend Container**: Spring Boot REST API
+- **PostgreSQL**: Managed database service
+- **Monitoring**: Application Insights and Log Analytics for observability
 
-### Backend URL Configuration
+---
 
-The frontend connects to the backend API through the following configuration:
+## 2. Infrastructure Deployment
 
-**Location**: `frontend/src/services/api.ts`
+![Infrastructure Deployment](infrastructure_deployment.png)
 
-```typescript
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
-```
+### Description
+This diagram provides a detailed view of the Azure infrastructure deployment, showing the network topology, subnet segmentation, and resource placement. It demonstrates how resources are organized within the Azure Resource Group and how they communicate through the Virtual Network.
 
-**Required Environment Variable**:
-- `VITE_API_BASE_URL`: The base URL for the backend API (defaults to `http://localhost:8080`)
+### Network Architecture:
+- **Virtual Network**: 10.0.0.0/16 CIDR block
+  - **App Gateway Subnet**: 10.0.1.0/24 (Public-facing)
+  - **Container Apps Subnet**: 10.0.6.0/24 (Private)
+  - **Database Subnet**: 10.0.2.0/24 (Private with service delegation)
 
-**Usage**:
-1. Create a `.env` file in the frontend directory
-2. Add: `VITE_API_BASE_URL=http://your-backend-url:8080`
-3. For production: `VITE_API_BASE_URL=https://your-production-api.com`
+### Key Resources:
+- **Resource Group**: `filip-bourgerapp`
+- **Application Gateway**: Standard_v2 SKU with path-based routing
+- **Container Apps Environment**: Consumption workload profile
+- **PostgreSQL Flexible Server**: GP_Standard_D2s_v3 SKU with 128GB storage
+- **Azure Container Registry**: `filipbourgerappacr.azurecr.io`
 
-### Frontend Compilation and Deployment
+### Security Features:
+- Private endpoints for database access
+- Network isolation using subnets
+- Service delegation for PostgreSQL
+- Internal load balancer for Container Apps
 
-#### Development Setup
+---
 
-```bash
-cd frontend
-npm install
-npm run dev          # Start development server (http://localhost:5173)
-npm run test         # Run tests
-npm run test:ui      # Run tests with UI
-npm run test:coverage # Run tests with coverage
-npm run lint         # Run ESLint
-```
+## 3. CI/CD Pipeline
 
-#### Production Build
+![CI/CD Pipeline](cicd_pipeline.png)
 
-```bash
-cd frontend
-npm run build        # Build for production
-npm run preview      # Preview production build locally
-```
+### Description
+This diagram illustrates the complete CI/CD pipeline implemented using GitHub Actions. It shows the automated workflow from code commit to production deployment, including quality gates, build processes, and infrastructure provisioning.
 
-The build process:
-1. **TypeScript Compilation**: `tsc -b` compiles TypeScript to JavaScript
-2. **Vite Build**: Bundles and optimizes assets
-3. **Output**: Creates `dist/` folder with production-ready files
+### Pipeline Stages:
 
-#### Deployment Options
+#### 1. Code Quality & Analysis
+- **Linting**: Java (Spotless) and TypeScript/React (ESLint)
+- **Testing**: JUnit tests for backend, Vitest for frontend
+- **Code Coverage**: JaCoCo for Java, Istanbul for TypeScript
+- **Static Analysis**: SonarCloud integration for code quality metrics
 
-**Option 1: Static Hosting (Recommended)**
-- Build the application: `npm run build`
-- Deploy the `dist/` folder to any static hosting service:
-  - Vercel, Netlify, AWS S3, Azure Static Web Apps
-  - Set `VITE_API_BASE_URL` environment variable in hosting platform
+#### 2. Build & Push
+- **Backend Build**: Maven-based Docker image build
+- **Frontend Build**: Vite-based Docker image build with Nginx
+- **Container Registry**: Push to Azure Container Registry
+- **Image Tagging**: Git SHA for versioning + latest tag
 
-**Option 2: Docker with Nginx**
-- The project includes `nginx.conf` for containerized deployment
-- Nginx serves the built React app with optimizations:
-  - Gzip compression
-  - Static asset caching
-  - Security headers
-  - SPA routing support
+#### 3. Infrastructure as Code
+- **Terraform Plan**: Validate infrastructure changes
+- **Terraform Apply**: Deploy infrastructure updates
+- **State Management**: Remote state in Azure Storage
+- **Environment**: Staging environment deployment
 
-**Option 3: Traditional Web Server**
-- Upload built files to any web server (Apache, Nginx, IIS)
-- Configure server to serve `index.html` for all routes (SPA support)
+### Workflow Triggers:
+- Push to `master` branch
+- Pull requests to `master`
+- Manual workflow dispatch
 
-## Backend Application
+---
 
-### Tech Stack
+## 4. Application Architecture
 
-- **Framework**: Spring Boot 3.2.0
+![Application Architecture](application_architecture.png)
+
+### Description
+This diagram shows the internal application architecture, detailing the layers, components, and data flow within the system. It provides insight into how the frontend and backend interact and how data is persisted.
+
+### Architecture Layers:
+
+#### Client Layer
+- **Web Browser**: User interface
+- **React SPA**: Single Page Application built with Vite and TypeScript
+  - React Router for navigation
+  - Context API for state management
+  - Axios for API communication
+
+#### API Gateway Layer
+- **Application Gateway**: Path-based routing
+  - `/` → Frontend (static files)
+  - `/api/*` → Backend (REST API)
+
+#### Application Layer
+
+**Frontend Service**:
+- Nginx web server
+- React bundle (optimized production build)
+- Environment-specific configuration
+
+**Backend Service**:
+- Spring Boot application (Java 21)
+- REST Controllers:
+  - `IngredientController`: Manage burger ingredients
+  - `CartController`: Shopping cart operations
+  - `OrderController`: Order management
+  - `HealthController`: Health checks and actuator endpoints
+
+#### Data Layer
+- **PostgreSQL Database**: `burgerbuilder`
+- **Entities**:
+  - `Ingredient`: Available burger ingredients
+  - `CartItem`: User shopping cart items
+  - `Order`: Completed orders
+  - `OrderItem`: Individual items within orders
+  - `BurgerLayer`: Burger composition
+  - `OrderLayer`: Order item composition
+
+#### Monitoring
+- Application Insights for telemetry and performance monitoring
+
+---
+
+## 5. Network Architecture
+
+![Network Architecture](network_architecture.png)
+
+### Description
+This diagram focuses on the network topology and connectivity patterns. It shows how traffic flows through different network segments and how private DNS resolution works for Container Apps.
+
+### Network Components:
+
+#### Public Network
+- **Internet**: External traffic entry point
+- **Public IP**: Static IP address for Application Gateway
+- **Application Gateway Subnet**: 10.0.1.0/24
+
+#### Private Networks
+- **Container Apps Subnet**: 10.0.6.0/24
+  - Internal load balancer enabled
+  - Service delegation to Microsoft.App/environments
+  - Frontend and Backend containers
+  
+- **Database Subnet**: 10.0.2.0/24
+  - Service delegation to Microsoft.DBforPostgreSQL/flexibleServers
+  - Private endpoint for PostgreSQL
+  - No public network access
+
+#### DNS Resolution
+- **Private DNS Zone**: `*.container-apps`
+  - Virtual network link for name resolution
+  - Wildcard A record pointing to Container Apps static IP
+  - Enables internal communication between containers
+
+### Traffic Flow:
+1. Internet → Public IP → Application Gateway
+2. Application Gateway → Frontend Container (internal)
+3. Frontend → Backend (via private DNS)
+4. Backend → PostgreSQL (via private endpoint)
+
+---
+
+## 6. Security Architecture
+
+![Security Architecture](security_architecture.png)
+
+### Description
+This diagram highlights the security layers and controls implemented throughout the architecture. It demonstrates defense-in-depth principles and how different security mechanisms work together.
+
+### Security Layers:
+
+#### Network Security
+- **Application Gateway**:
+  - Web Application Firewall (WAF) capability
+  - SSL/TLS termination
+  - DDoS protection (Azure platform)
+  
+- **Virtual Network**:
+  - Network isolation and segmentation
+  - Private subnets for application and data tiers
+  - Network Security Groups (implicit)
+
+#### Application Security
+- **Frontend**:
+  - CORS configuration
+  - Content Security Policy headers (via Nginx)
+  - Static file serving with no server-side execution
+  
+- **Backend**:
+  - Spring Security framework
+  - CORS configuration
+  - Input validation using Jakarta Validation
+  - Secure session management
+
+#### Data Security
+- **PostgreSQL**:
+  - Private endpoint (no public access)
+  - SSL/TLS encryption in transit
+  - Encrypted storage at rest
+  - Backup retention (configurable)
+  
+- **Key Vault** (Optional):
+  - Secrets management
+  - Certificate storage
+  - Managed identities for access
+
+#### Monitoring & Compliance
+- **Application Insights**:
+  - Security event logging
+  - Anomaly detection
+  - Performance monitoring
+  
+- **Log Analytics**:
+  - Centralized log aggregation
+  - Security log retention
+  - Query and analysis capabilities
+  - Alert rules for security events
+
+### Security Best Practices Implemented:
+1. **Least Privilege**: Minimal permissions for all resources
+2. **Network Isolation**: Private subnets and endpoints
+3. **Encryption**: In-transit and at-rest encryption
+4. **Monitoring**: Comprehensive logging and alerting
+5. **Identity**: Managed identities where possible
+6. **Secrets Management**: No hardcoded credentials
+
+---
+
+## Infrastructure as Code
+
+### Terraform Modules
+
+The infrastructure is organized using Terraform modules for reusability and maintainability:
+
+#### 1. Network Module (`1_modules/network`)
+- Virtual Network creation
+- Subnet management with service delegation
+- Virtual Network peering support
+
+#### 2. Analytics Module (`1_modules/analytics`)
+- Log Analytics Workspace
+- Application Insights
+- Retention policies
+
+#### 3. Container Apps Module (`1_modules/container_apps`)
+- Container App Environment
+- Container Apps deployment
+- Private DNS integration
+- Auto-scaling configuration
+
+#### 4. PostgreSQL Module (`1_modules/flexible_postgresql`)
+- Flexible Server deployment
+- Private DNS zone
+- Database creation
+- High availability support (optional)
+- Read replica support (optional)
+
+#### 5. Application Gateway Module (`1_modules/application_gateway_v2`)
+- Application Gateway v2
+- Backend pools and settings
+- HTTP listeners
+- Path-based routing rules
+- Health probes
+- SSL certificate management (optional)
+
+### Deployment Realms
+
+**Staging Environment** (`3_realms/bourgerapp/staging`):
+- Resource Group: `filip-bourgerapp`
+- Location: UK South
+- Environment-specific variables
+- Terraform state management
+
+---
+
+## Technology Stack
+
+### Frontend
+- **Framework**: React 18
+- **Language**: TypeScript
+- **Build Tool**: Vite
+- **Routing**: React Router v6
+- **HTTP Client**: Axios
+- **Testing**: Vitest + React Testing Library
+- **Web Server**: Nginx (production)
+
+### Backend
+- **Framework**: Spring Boot 3.x
 - **Language**: Java 21
 - **Build Tool**: Maven
-- **Database**: 
-  - PostgreSQL (Docker/Development)
-  - Azure SQL Database (Production)
-- **ORM**: Spring Data JPA + Hibernate
-- **Validation**: Spring Boot Validation
-- **Utilities**: Lombok
-- **Testing**: Spring Boot Test + H2 Database
+- **Database Access**: Spring Data JPA
+- **Validation**: Jakarta Validation
+- **Testing**: JUnit 5 + Mockito
+- **Monitoring**: Spring Boot Actuator
 
-### Key Features
+### Database
+- **Engine**: PostgreSQL 16
+- **Deployment**: Azure Flexible Server
+- **Storage**: Premium SSD (P30)
+- **Compute**: GP_Standard_D2s_v3
 
-- RESTful API for burger ingredients, cart, and orders
-- Session-based cart management
-- Database initialization with sample data
-- CORS configuration for frontend integration
-- Comprehensive error handling
-- Multi-environment configuration support
+### Infrastructure
+- **IaC**: Terraform 1.9.5
+- **Cloud Provider**: Microsoft Azure
+- **Container Registry**: Azure Container Registry
+- **Orchestration**: Azure Container Apps
 
-### Environment Variables Required
+### CI/CD
+- **Platform**: GitHub Actions
+- **Code Quality**: SonarCloud
+- **Container Build**: Docker BuildKit
+- **Deployment**: Terraform
 
-The backend requires the following environment variables (defined in `environment.env`):
+---
 
-#### Database Configuration
-- `DB_HOST`: Database server hostname
-- `DB_PORT`: Database port (1433 for SQL Server, 5432 for PostgreSQL)
-- `DB_NAME`: Database name
-- `DB_USERNAME`: Database username
-- `DB_PASSWORD`: Database password
-- `DB_DRIVER`: JDBC driver class name
+## Deployment Architecture Decisions
 
-#### Application Configuration
-- `SPRING_PROFILES_ACTIVE`: Active Spring profile
-  - `docker`: Uses PostgreSQL configuration
-  - `azure`: Uses Azure SQL configuration
-- `SERVER_PORT`: Server port (default: 8080)
-- `CORS_ALLOWED_ORIGINS`: Comma-separated list of allowed CORS origins
+### Why Azure Container Apps?
+- **Serverless**: No infrastructure management
+- **Cost-Effective**: Pay only for what you use
+- **Auto-Scaling**: Automatic scaling based on demand
+- **KEDA Integration**: Event-driven scaling
+- **Simplified Networking**: Built-in ingress and service discovery
 
-#### Example Configuration
+### Why Application Gateway v2?
+- **Path-Based Routing**: Single entry point for frontend and backend
+- **WAF Capability**: Web application firewall for security
+- **SSL Termination**: Centralized certificate management
+- **Health Probes**: Automatic backend health monitoring
+- **Auto-Scaling**: Scale based on traffic patterns
+
+### Why PostgreSQL Flexible Server?
+- **Flexibility**: More control over configuration
+- **Performance**: Better performance than Single Server
+- **Cost**: Optimized pricing model
+- **High Availability**: Built-in HA options
+- **Backup**: Automated backup and point-in-time restore
+
+### Why Terraform?
+- **Infrastructure as Code**: Version-controlled infrastructure
+- **Modularity**: Reusable modules for different environments
+- **State Management**: Track infrastructure state
+- **Plan Before Apply**: Preview changes before deployment
+- **Multi-Cloud**: Potential for multi-cloud deployments
+
+---
+
+## Monitoring and Observability
+
+### Application Insights
+- Request telemetry
+- Dependency tracking
+- Exception tracking
+- Custom metrics
+- Distributed tracing
+
+### Log Analytics
+- Centralized logging
+- Custom queries (KQL)
+- Alerting rules
+- Workbooks for visualization
+- Long-term retention
+
+### Health Checks
+- Backend: `/actuator/health`
+- Frontend: `/` (Nginx default page)
+- Database: Connection pool monitoring
+
+---
+
+## Scalability Considerations
+
+### Horizontal Scaling
+- **Frontend**: Auto-scale based on HTTP requests
+- **Backend**: Auto-scale based on CPU/memory/HTTP requests
+- **Database**: Read replicas for read-heavy workloads
+
+### Vertical Scaling
+- Container Apps: Adjust CPU/memory per container
+- Database: Change SKU for more compute/storage
+- Application Gateway: Adjust capacity units
+
+### Performance Optimization
+- CDN for static assets (future enhancement)
+- Database connection pooling
+- Caching layer (Redis - future enhancement)
+- Query optimization and indexing
+
+---
+
+## Disaster Recovery
+
+### Backup Strategy
+- **Database**: Automated daily backups with 7-day retention
+- **Point-in-Time Restore**: Up to 7 days
+- **Geo-Redundant Backup**: Optional for production
+
+### High Availability
+- **Application Gateway**: Zone-redundant deployment option
+- **Container Apps**: Multi-replica deployment
+- **Database**: High availability with standby replica
+
+### Recovery Procedures
+1. Database restore from backup
+2. Infrastructure recreation via Terraform
+3. Container image redeployment from ACR
+4. DNS updates if needed
+
+---
+
+## Cost Optimization
+
+### Current Configuration (Staging)
+- Application Gateway: Standard_v2 (1 capacity unit)
+- Container Apps: Consumption plan
+- PostgreSQL: GP_Standard_D2s_v3 (2 vCores)
+- Storage: P30 Premium SSD (128GB)
+
+### Cost Optimization Strategies
+1. **Auto-Scaling**: Scale to zero when not in use (Container Apps)
+2. **Reserved Instances**: Commit to 1-3 year terms for compute
+3. **Right-Sizing**: Monitor and adjust resource allocation
+4. **Storage Tiering**: Use appropriate storage tiers
+5. **Development Environments**: Use smaller SKUs for non-production
+
+---
+
+## Future Enhancements
+
+### Short-Term
+- [ ] Implement Azure Key Vault for secrets management
+- [ ] Add SSL/TLS certificates to Application Gateway
+- [ ] Configure custom domain names
+- [ ] Implement Redis cache for session management
+- [ ] Add Azure CDN for static assets
+
+### Medium-Term
+- [ ] Multi-region deployment for disaster recovery
+- [ ] Implement Azure Front Door for global load balancing
+- [ ] Add Azure Monitor alerts and dashboards
+- [ ] Implement automated database backups to separate storage
+- [ ] Add API Management for API gateway features
+
+### Long-Term
+- [ ] Migrate to Azure Kubernetes Service (AKS) for more control
+- [ ] Implement service mesh (Istio/Linkerd)
+- [ ] Add event-driven architecture with Azure Event Grid
+- [ ] Implement CQRS pattern for scalability
+- [ ] Add machine learning for personalized recommendations
+
+---
+
+## Regenerating Diagrams
+
+To regenerate the architecture diagrams:
 
 ```bash
-# For Docker/PostgreSQL Development
-SPRING_PROFILES_ACTIVE=docker
-DB_HOST=database
-DB_PORT=5432
-DB_NAME=burgerbuilder
-DB_USERNAME=postgres
-DB_PASSWORD=YourStrong!Passw0rd
-DB_DRIVER=org.postgresql.Driver
+# Ensure diagrams library is installed
+pip install diagrams
 
-# For Azure SQL Production
-SPRING_PROFILES_ACTIVE=azure
-DB_HOST=your-server.database.windows.net
-DB_PORT=1433
-DB_NAME=burgerbuilder
-DB_USERNAME=your-username
-DB_PASSWORD=your-password
-DB_DRIVER=com.microsoft.sqlserver.jdbc.SQLServerDriver
+# Run the diagram generation script
+python3 diagram.py
 ```
 
-### Backend Compilation and Deployment
+This will generate all 6 architecture diagrams in PNG format.
 
-#### Development Setup
+---
 
-```bash
-cd backend
-mvn clean install     # Download dependencies and compile
-mvn spring-boot:run   # Start development server
-```
+## Contact and Support
 
-#### Production Build
+For questions or issues related to the architecture:
+- Review the Terraform code in `Infra/IaaC/`
+- Check GitHub Actions workflows in `.github/workflows/`
+- Review application code in `backend/` and `frontend/`
 
-```bash
-cd backend
-mvn clean package     # Build JAR file
-```
-
-The build process:
-1. **Dependency Resolution**: Downloads all Maven dependencies
-2. **Compilation**: Compiles Java source code to bytecode
-3. **Testing**: Runs unit and integration tests
-4. **Packaging**: Creates executable JAR file in `target/` directory
-
-#### Deployment Options
-
-**Option 1: JAR File Execution**
-```bash
-java -jar target/burger-builder-backend-1.0.0.jar
-```
-
-**Option 2: Docker Deployment**
-```bash
-# Build Docker image
-docker build -t burger-builder-backend .
-
-# Run with environment variables
-docker run -p 8080:8080 --env-file environment.env burger-builder-backend
-```
-
-**Option 3: Cloud Platform Deployment**
-- **Azure App Service**: Deploy JAR file directly
-- **AWS Elastic Beanstalk**: Upload JAR file
-- **Google Cloud Run**: Containerized deployment
-- **Heroku**: Git-based deployment
-
-#### Environment-Specific Deployment
-
-**Development (PostgreSQL)**:
-1. Set `SPRING_PROFILES_ACTIVE=docker`
-2. Configure PostgreSQL connection variables
-3. Run with Docker Compose or local PostgreSQL
-
-**Production (Azure SQL)**:
-1. Set `SPRING_PROFILES_ACTIVE=azure`
-2. Configure Azure SQL connection variables
-3. Deploy to cloud platform with proper security configuration
-
-## Getting Started
-
-1. **Clone the repository**
-2. **Set up environment variables**:
-   ```bash
-   cp environment.env.example environment.env
-   # Edit environment.env with your database credentials
-   ```
-3. **Start the backend**:
-   ```bash
-   cd backend
-   mvn spring-boot:run
-   ```
-4. **Start the frontend**:
-   ```bash
-   cd frontend
-   npm install
-   npm run dev
-   ```
-5. **Access the application**: http://localhost:5173
-
-## API Endpoints
-
-- `GET /api/ingredients` - Get all ingredients
-- `GET /api/ingredients/{category}` - Get ingredients by category
-- `POST /api/cart/items` - Add item to cart
-- `GET /api/cart/{sessionId}` - Get cart items
-- `DELETE /api/cart/items/{itemId}` - Remove cart item
-- `POST /api/orders` - Create order
-- `GET /api/orders/{orderId}` - Get order details
-- `GET /api/orders/history` - Get order history
-
-## License
-
-This project is part of a capstone project for educational purposes.
+---
