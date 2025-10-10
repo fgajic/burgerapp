@@ -1,0 +1,22 @@
+name: 'Send Google Chat Message'
+description: 'Send a message to a Google Chat'
+inputs:
+  message:
+    description: 'Message to send to chat'
+    required: true
+  webhook_url:
+    description: 'Google Chat webhook URL'
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: Send Google chat message
+      shell: bash
+      run: |
+        MESSAGE="${{ inputs.message }}"
+        curl -X POST "${{ inputs.webhook_url }}" \
+          -H "Content-Type: application/json" \
+          -d '{
+                "text": "'"${MESSAGE}"'"
+              }'

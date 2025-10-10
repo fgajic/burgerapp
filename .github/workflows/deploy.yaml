@@ -1,0 +1,62 @@
+# name: Deployment pipeline
+# on:
+#   workflow_call: 
+#     inputs:
+#       environment:
+#         type: string
+#         required: true
+#         description: 'Environment to deploy to'
+#       image_tag:
+#         type: string
+#         required: true
+#         description: 'Image tag to deploy'
+
+# concurrency:
+#   group: terraform-deployment-${{ github.event.pull_request.number || github.ref }}
+
+# jobs:
+#   terraform-checks:
+#     env:
+#       ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
+#       ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
+#       ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
+#       ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
+#       TF_VAR_IMAGE_TAG: ${{ inputs.image_tag }}
+      
+#     runs-on: ubuntu-latest
+#     defaults:
+#       run:
+#         working-directory: Infra/IaaC/9_realms/hes/${{ inputs.environment }} 
+#         shell: bash
+#     steps:
+#       - name: Checkout repository
+#         uses: actions/checkout@v4
+      
+#       - name: Setup Terraform
+#         uses: hashicorp/setup-terraform@v3
+#         with:
+#           terraform_version: 1.9.5
+
+#       - name: Terraform apply for ${{ inputs.environment }} 
+#         run: |
+#           terraform init
+#           terraform apply -auto-approve=true -lock-timeout=30s -input=false
+
+#       - name: Write apply success to summary
+#         run: echo "### ✅ Deployment of  ${{ inputs.environment }} successful" >> $"GITHUB_STEP_SUMMARY"
+
+#       - name: Clean up after plan
+#         run: rm -rf terraform-plan.json terraform.tfplan
+      
+#       - name: Send failure notification
+#         if: failure()
+#         uses: ./.github/actions/send-google-chat-message
+#         with:
+#           message: >-
+#             ❌ Terraform deploy failed with ${{ inputs.image_tag }} to ${{ inputs.environment }} environment.
+#             Check the logs: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+#           webhook_url: ${{ secrets.GOOGLE_CHAT_WEBHOOK_URL }}
+        
+
+
+          

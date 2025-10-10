@@ -1,0 +1,25 @@
+name: Send Google Chat Message
+on:
+  workflow_call: 
+    inputs:
+      message:
+        type: string
+        description: 'Message to send to google chat'
+        required: true
+    secrets:
+      GOOGLE_CHAT_WEBHOOK_URL:
+        description: 'Google chat webhook url'
+        required: true
+    
+jobs:
+  send-google-chat-message:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Google chat message
+        run: |
+          MESSAGE="${{ inputs.message }}"
+          curl -X POST "${{ secrets.GOOGLE_CHAT_WEBHOOK_URL }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+                  "text": "'"${MESSAGE}"'"
+                }'

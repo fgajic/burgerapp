@@ -1,0 +1,105 @@
+name: Testing
+
+on:
+  push:
+    tags:
+      - "v*"
+      - "rc--*"
+  
+  schedule:
+    # Runs each day at 8 AM UTC
+    - cron: "0 8 * * *"
+  
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Test and sonar scan
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Install SonarCloud scanner
+        run: dotnet tool restore
+
+      - name: Run build and test with sonar analysis
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          dotnet sonarscanner begin \
+            /k:"bpsafrica_hes" \
+            /o:"bpsafrica" \
+            /d:sonar.token="${{ secrets.SONAR_TOKEN }}" \
+            /d:sonar.host.url="https://sonarcloud.io" \
+            /d:"sonar.dotnet.excludeTestProjects=true" \
+            /d:"sonar.cs.opencover.reportsPaths=**/coverage.opencover.xml"
+          
+          dotnet build --configuration Release
+          
+          # Run Unit Tests
+          dotnet test \
+            --filter "Category=UnitTests" \
+            --configuration Release \
+            --no-restore \
+            --collect:"XPlat Code Coverage;Format=opencover" \
+            --results-directory:"./TestResults/UnitTests"
+          
+          # Run Integration Tests
+          dotnet test \
+            --filter "Category=IntegrationTests" \
+            --configuration Release \
+            --no-restore \
+            --collect:"XPlat Code Coverage;Format=opencover" \
+            --results-directory:"./TestResults/IntegrationTests"
+          
+          dotnet sonarscanner end /d:sonar.token="${{ secrets.SONAR_TOKEN }}"
+
+  notify-failure:
+    name: Send Failure Notification
+    needs: [test]
+    if: failure()
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Notify Google Chat on Failure
+        run: |
+          MESSAGE="❌ Daily tests workflow *${{ github.workflow }}* for commit ${{ github.sha }} failed."
+          MESSAGE+=" Check the logs: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          
+          curl -X POST "${{ secrets.GOOGLE_CHAT_WEBHOOK_URL }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+                  "text": "'"${MESSAGE}"'"
+                }'
+
+  notify-success:
+    name: Send Success Notification
+    needs: [test]
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Notify Google Chat on Success
+        run: |
+          MESSAGE="✅ Daily tests workflow *${{ github.workflow }}* for commit ${{ github.sha }} succeeded."
+          MESSAGE+=" Check the logs: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          
+          curl -X POST "${{ secrets.GOOGLE_CHAT_WEBHOOK_URL }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+                  "text": "'"${MESSAGE}"'"
+                }'

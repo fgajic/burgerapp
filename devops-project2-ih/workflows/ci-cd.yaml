@@ -1,0 +1,183 @@
+name: Code Quality & Analysis, Build, push and deploy
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # terraform-checks:
+  #   if: github.event_name == 'pull_request'
+  #   name: Terraform checks for staging environment
+  #   uses: ./.github/workflows/terraform-checks.yaml
+  #   with:
+  #     environment: staging
+  #     image_tag: ${{ github.sha }}
+  #   secrets: 
+  #     inherit
+
+  code-quality-analysis: # TODO: At some point separate checks for frontend and backend
+    if: github.event_name == 'pull_request'
+    name: Code Quality & Analysis
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: ""
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18.20.4'
+
+      - name: Lint the solution
+        continue-on-error: true
+        run: |
+          # URL encode the branch names before fetching
+          BASE_REF=$(echo "${{ github.base_ref }}" | sed 's/(/\\(/g; s/)/\\)/g')
+          HEAD_REF=$(echo "${{ github.head_ref }}" | sed 's/(/\\(/g; s/)/\\)/g')
+
+          git fetch origin "$BASE_REF"
+          git fetch origin "$HEAD_REF"
+
+          CHANGED_FILES=$(git diff --name-only --diff-filter=d "origin/$BASE_REF".."origin/$HEAD_REF" 2>/dev/null | grep -E '\.cs$' | tr '\n' ' ' || echo "")
+
+          if [ ! -z "$CHANGED_FILES" ]; then
+            echo "Checking changed C# files: $CHANGED_FILES"
+            dotnet format --verify-no-changes --verbosity diagnostic --include "$CHANGED_FILES"
+          else
+            echo "No C# files changed. Skipping lint."
+            exit 0
+          fi
+
+      - name: Lint frontend
+        continue-on-error: true
+        working-directory: HeadEnd.Ng
+        run: |
+          # URL encode the branch names before fetching
+          BASE_REF=$(echo "${{ github.base_ref }}" | sed 's/(/\\(/g; s/)/\\)/g')
+          HEAD_REF=$(echo "${{ github.head_ref }}" | sed 's/(/\\(/g; s/)/\\)/g')
+
+          git fetch origin "$BASE_REF"
+          git fetch origin "$HEAD_REF"
+
+          CHANGED_FILES=$(git diff --name-only --diff-filter=d "origin/$BASE_REF".."origin/$HEAD_REF" 2>/dev/null | grep -E '\.(ts|html)$' | tr '\n' ',' | sed 's/,$//' || echo "")
+
+          if [ ! -z "$CHANGED_FILES" ]; then
+            echo "Checking changed frontend files: $CHANGED_FILES"
+            npm install --only=dev
+            npm run ng -- lint --files=$CHANGED_FILES
+          else
+            echo "No frontend files changed. Skipping lint."
+            exit 0
+          fi
+
+      - name: Restore
+        shell: bash
+        run: |
+          dotnet restore
+
+      - name: Install SonarCloud scanner
+        run: |
+          dotnet tool restore
+
+      - name: Building and testing with sonar
+        run: |
+          dotnet sonarscanner begin /k:"bpsafrica_hes"  /o:"bpsafrica" /d:sonar.token="${{ secrets.SONAR_TOKEN }}" /d:sonar.pullrequest.key="${{ github.sha }}" /d:sonar.dotnet.excludeTestProjects=true /d:sonar.pullrequest.branch="${{ github.ref }}" /d:sonar.pullrequest.base="refs/heads/main" /d:sonar.cs.opencover.reportsPaths="**/coverage.opencover.xml"
+          dotnet test --filter UnitTests -p:WarningLevel=0 --logger:"console;verbosity=quiet" --nologo --configuration Release --no-restore --collect:"XPlat Code Coverage;Format=opencover"
+          dotnet sonarscanner end /d:sonar.token="${{ secrets.SONAR_TOKEN }}"
+      - name: Send failure notification
+        if: failure()
+        uses: ./.github/actions/send-google-chat-message
+        with:
+          message: >-
+            ❌ Code Quality & Analysis failed.
+            Check the logs: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          webhook_url: ${{ secrets.GOOGLE_CHAT_WEBHOOK_URL }}
+            
+  build-push:
+    env:
+      DOCKER_BUILDKIT: 1
+    runs-on: ubuntu-latest
+    name: Build push for ${{ matrix.spec.image_name }}:${{ github.sha }}
+    environment: development # This should be staging but environments aren't configured
+    strategy:
+      matrix:
+        spec:
+          [
+            {
+              image_name: "heswebapp",
+              dockerfile_path: "HES.UO.API/Dockerfile",
+              context: ".",
+            },
+            {
+              image_name: "hes-frontend",
+              dockerfile_path: "HeadEnd.Ng/frontend.Dockerfile",
+              context: "HeadEnd.Ng",
+            },
+            {
+              image_name: "hes-dlms",
+              dockerfile_path: "HES.DLMS.Hub/Dockerfile",
+              context: ".",
+            },
+            {
+              image_name: "hes-auditlog",
+              dockerfile_path: "HES.AuditLogs.API/Dockerfile",
+              context: ".",
+            },
+          ]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Login to ACR
+        uses: docker/login-action@v3
+        with:
+          registry: hesbps.azurecr.io
+          username: ${{ secrets.ACR_DOCKER_USER }}
+          password: ${{ secrets.ACR_DOCKER_PAT }}
+
+      - name: Building ${{ matrix.spec.image_name }}:${{ github.sha }}
+        run: |
+          docker build -t hesbps.azurecr.io/${{ matrix.spec.image_name }}:${{ github.sha }} ${{ matrix.spec.context }} -f ${{ matrix.spec.dockerfile_path }}
+
+      - name: Pushing ${{ matrix.spec.image_name }}:${{ github.sha }}
+        if: ${{ github.ref == 'refs/heads/main' }}
+        shell: bash
+        run: |
+          docker tag hesbps.azurecr.io/${{ matrix.spec.image_name }}:${{ github.sha }} hesbps.azurecr.io/${{ matrix.spec.image_name }}:latest
+          docker push hesbps.azurecr.io/${{ matrix.spec.image_name }}:${{ github.sha }}
+          docker push hesbps.azurecr.io/${{ matrix.spec.image_name }}:latest
+        
+      - name: Send failure notification
+        if: failure()
+        uses: ./.github/actions/send-google-chat-message
+        with:
+          message: >-
+            ❌ Build and push of ${{matrix.spec.image_name }} failed.
+            Check the logs: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          webhook_url: ${{ secrets.GOOGLE_CHAT_WEBHOOK_URL }}
+
+  # deploy:
+  #   needs: [build-push]
+  #   if: ${{ github.ref == 'refs/heads/main' }}
+  #   name: Deploying ${{ github.sha }} to staging environment
+  #   uses: ./.github/workflows/deploy.yaml
+  #   with:
+  #     environment: staging
+  #     image_tag: ${{ github.sha }}
+  #   secrets:
+  #     inherit

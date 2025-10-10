@@ -1,0 +1,74 @@
+name: Terraform checks
+on:
+  workflow_call: 
+    inputs:
+      environment:
+        type: string
+        required: true
+        description: 'Environment to check'
+      image_tag:
+        type: string
+        required: true
+        description: 'Image tag of containers'
+
+concurrency:
+  group: terraform-checks-${{ github.event.pull_request.number || github.ref }}
+
+jobs:
+  terraform-checks:
+    name: Terraform checks for ${{ inputs.environment }} environment
+    env:
+      ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
+      ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
+      ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
+      TF_VAR_IMAGE_TAG: ${{ inputs.image_tag }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Infra/IaaC/9_realms/hes/${{ inputs.environment }}
+        shell: bash
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.5
+
+      - name: Terraform checks ${{ inputs.environment }}
+        run: |
+          terraform init
+          terraform validate
+          terraform plan -no-color -input=false -lock=false -out terraform.tfplan
+          terraform show -json terraform.tfplan > terraform-plan.json
+
+      - name: Comment plan summary
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: liatrio/terraform-change-pr-commenter@v1.7.1
+        with:
+          json-file: Infra/IaaC/9_realms/hes/${{ inputs.environment }}/terraform-plan.json
+          include-workflow-link: true
+          include-plan-job-summary: true
+          expand-comment: true
+          hide-previous-comments: true
+          comment-header: "Terraform Plan changes for ${{ inputs.environment }}"
+
+      - name: Clean up
+        run: rm -rf terraform-plan.json terraform.tfplan
+      
+      - name: Send failure notification
+        if: failure()
+        uses: ./.github/actions/send-google-chat-message
+        with:
+          message: >-
+            ❌ Terraform checks failed for ${{ inputs.environment }} environment.
+            Check the logs: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          webhook_url: ${{ secrets.GOOGLE_CHAT_WEBHOOK_URL }}
+        
+
+
+          
