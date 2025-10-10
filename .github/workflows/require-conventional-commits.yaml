@@ -13,26 +13,33 @@ jobs:
       - name: PR Conventional Commit Validation
         uses: ytanikin/pr-conventional-commits@1.4.0
         with:
+
           task_types: |
-            feat
-            fix
-            docs
-            test
-            ci
-            infra
-            refactor
-            perf
-            chore
-            revert
+            [
+              "feat",
+              "fix",
+              "docs",
+              "test",
+              "ci",
+              "infra",
+              "refactor",
+              "perf",
+              "chore",
+              "revert"
+            ]
+
           custom_labels: |
-            feat:feature
-            fix:fix
-            docs:documentation
-            test:test
-            ci:CI/CD
-            infra:infrastructure
-            refactor:refactor
-            perf:performance
-            chore:chore
-            revert:revert
+            {
+              "feat": "feature",
+              "fix": "fix",
+              "docs": "documentation",
+              "test": "test",
+              "ci": "CI/CD",
+              "infra": "infrastructure",
+              "refactor": "refactor",
+              "perf": "performance",
+              "chore": "chore",
+              "revert": "revert"
+            }
+
           add_scope_label: 'true'
