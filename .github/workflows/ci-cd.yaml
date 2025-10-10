@@ -108,9 +108,9 @@ jobs:
       - name: Building and testing with sonar
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
-            dotnet sonarscanner begin /k:"filipgajic_burger-builder" /o:"filipgajic" /d:sonar.token="${{ secrets.SONAR_TOKEN }}" /d:sonar.pullrequest.key="${{ github.event.pull_request.number }}" /d:sonar.pullrequest.branch="${{ github.head_ref }}" /d:sonar.pullrequest.base="${{ github.base_ref }}" /d:sonar.java.coveragePlugin=jacoco /d:sonar.coverage.jacoco.xmlReportPaths="backend/target/site/jacoco/jacoco.xml" /d:sonar.javascript.lcov.reportPaths="frontend/coverage/lcov.info"
+            dotnet sonarscanner begin /k:"fgajic_burgerapp" /o:"fgajic" /d:sonar.token="${{ secrets.SONAR_TOKEN }}" /d:sonar.pullrequest.key="${{ github.event.pull_request.number }}" /d:sonar.pullrequest.branch="${{ github.head_ref }}" /d:sonar.pullrequest.base="${{ github.base_ref }}" /d:sonar.java.coveragePlugin=jacoco /d:sonar.coverage.jacoco.xmlReportPaths="backend/target/site/jacoco/jacoco.xml" /d:sonar.javascript.lcov.reportPaths="frontend/coverage/lcov.info"
           else
-            dotnet sonarscanner begin /k:"filipgajic_burger-builder" /o:"filipgajic" /d:sonar.token="${{ secrets.SONAR_TOKEN }}" /d:sonar.branch.name="${{ github.ref_name }}" /d:sonar.java.coveragePlugin=jacoco /d:sonar.coverage.jacoco.xmlReportPaths="backend/target/site/jacoco/jacoco.xml" /d:sonar.javascript.lcov.reportPaths="frontend/coverage/lcov.info"
+            dotnet sonarscanner begin /k:"fgajic_burgerapp" /o:"fgajic" /d:sonar.token="${{ secrets.SONAR_TOKEN }}" /d:sonar.branch.name="${{ github.ref_name }}" /d:sonar.java.coveragePlugin=jacoco /d:sonar.coverage.jacoco.xmlReportPaths="backend/target/site/jacoco/jacoco.xml" /d:sonar.javascript.lcov.reportPaths="frontend/coverage/lcov.info"
           fi
           
           # Run backend tests with coverage
