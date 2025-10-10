@@ -1,0 +1,74 @@
+name: Terraform Infrastructure Pipeline
+on:
+  pull_request:
+    branches:
+      - master
+    paths:
+      - 'Infra/IaaC/**'
+  push:
+    branches:
+      - master
+    paths:
+      - 'Infra/IaaC/**'
+  workflow_dispatch:
+
+concurrency:
+  group: terraform-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  terraform-plan:
+    name: Terraform Plan
+    runs-on: ubuntu-latest
+    env:
+      ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
+      ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
+      ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
+      TF_VAR_IMAGE_TAG: ${{ github.sha }}
+      TF_VAR_PG_PASSWORD: ${{ secrets.TF_VAR_PG_PASSWORD }}
+      TF_VAR_ACR_PASSWORD: ${{ secrets.ACR_DOCKER_PAT }}
+      TF_VAR_ACR_USERNAME: ${{ secrets.ACR_DOCKER_USER }}
+    defaults:
+      run:
+        working-directory: Infra/IaaC/3_realms/bourgerapp/staging
+        shell: bash
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.5
+
+      - name: Terraform Plan
+        run: |
+          terraform init
+          terraform validate
+          terraform plan -no-color -input=false -lock=false -out terraform.tfplan
+          terraform show -json terraform.tfplan > terraform-plan.json
+
+      - name: Comment plan summary on PR
+        if: github.event_name == 'pull_request'
+        uses: liatrio/terraform-change-pr-commenter@v1.7.1
+        with:
+          json-file: Infra/IaaC/3_realms/bourgerapp/staging/terraform-plan.json
+          include-workflow-link: true
+          include-plan-job-summary: true
+          expand-comment: true
+          hide-previous-comments: true
+          comment-header: "Terraform Plan changes for staging environment"
+
+      - name: Upload plan artifact
+        if: github.event_name == 'push'
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-plan
+          path: Infra/IaaC/3_realms/bourgerapp/staging/terraform.tfplan
+          retention-days: 1
+
+      - name: Clean up
+        run: rm -rf terraform-plan.json

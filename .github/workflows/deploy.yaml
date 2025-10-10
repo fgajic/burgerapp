@@ -1,0 +1,48 @@
+name: Deployment pipeline
+on:
+  workflow_call:
+
+concurrency:
+  group: terraform-deployment-${{ github.event.pull_request.number || github.ref }}
+
+jobs:
+  terraform-deploy:
+    env:
+      ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
+      ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
+      ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
+      TF_VAR_IMAGE_TAG: ${{ github.sha }}
+      TF_VAR_PG_PASSWORD: ${{ secrets.TF_VAR_PG_PASSWORD }}
+      TF_VAR_ACR_PASSWORD: ${{ secrets.ACR_DOCKER_PAT }}
+      TF_VAR_ACR_USERNAME: ${{ secrets.ACR_DOCKER_USER }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Infra/IaaC/3_realms/bourgerapp/staging 
+        shell: bash
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.5
+
+      - name: Terraform Plan
+        run: |
+          terraform init
+          terraform validate
+          terraform plan -no-color -input=false -lock=false -out terraform.tfplan
+
+      - name: Terraform Apply
+        run: |
+          terraform apply -auto-approve=true -lock-timeout=30s -input=false terraform.tfplan
+
+      - name: Write apply success to summary
+        run: echo "### Deployment of  staging successful" >> $"GITHUB_STEP_SUMMARY"
+
+      - name: Clean up
+        run: rm -rf terraform-plan.json terraform.tfplan
+          
