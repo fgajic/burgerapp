@@ -2,10 +2,10 @@ name: Code Quality & Analysis, Build, push and deploy
 on:
   push:
     branches:
-      - main
+      - master
   pull_request:
     branches:
-      - main
+      - master
   workflow_dispatch:
 
 concurrency:
@@ -107,7 +107,7 @@ jobs:
 
       - name: Building and testing with sonar
         run: |
-          dotnet sonarscanner begin /k:"filipgajic_burger-builder" /o:"filipgajic" /d:sonar.token="${{ secrets.SONAR_TOKEN }}" /d:sonar.pullrequest.key="${{ github.sha }}" /d:sonar.pullrequest.branch="${{ github.ref }}" /d:sonar.pullrequest.base="refs/heads/main" /d:sonar.java.coveragePlugin=jacoco /d:sonar.coverage.jacoco.xmlReportPaths="backend/target/site/jacoco/jacoco.xml" /d:sonar.javascript.lcov.reportPaths="frontend/coverage/lcov.info"
+          dotnet sonarscanner begin /k:"filipgajic_burger-builder" /o:"filipgajic" /d:sonar.token="${{ secrets.SONAR_TOKEN }}" /d:sonar.pullrequest.key="${{ github.sha }}" /d:sonar.pullrequest.branch="${{ github.ref }}" /d:sonar.pullrequest.base="refs/heads/master" /d:sonar.java.coveragePlugin=jacoco /d:sonar.coverage.jacoco.xmlReportPaths="backend/target/site/jacoco/jacoco.xml" /d:sonar.javascript.lcov.reportPaths="frontend/coverage/lcov.info"
           
           # Run backend tests with coverage
           cd backend
@@ -159,7 +159,7 @@ jobs:
           docker build -t filipbourgerappacr.azurecr.io/${{ matrix.spec.image_name }}:${{ github.sha }} ${{ matrix.spec.context }} -f ${{ matrix.spec.dockerfile_path }}
 
       - name: Pushing ${{ matrix.spec.image_name }}:${{ github.sha }}
-        if: ${{ github.ref == 'refs/heads/main' }}
+        if: ${{ github.ref == 'refs/heads/master' }}
         shell: bash
         run: |
           docker tag filipbourgerappacr.azurecr.io/${{ matrix.spec.image_name }}:${{ github.sha }} filipbourgerappacr.azurecr.io/${{ matrix.spec.image_name }}:latest
@@ -169,7 +169,7 @@ jobs:
 
   # deploy:
   #   needs: [build-push]
-  #   if: ${{ github.ref == 'refs/heads/main' }}
+  #   if: ${{ github.ref == 'refs/heads/master' }}
   #   name: Deploying ${{ github.sha }} to staging environment
   #   uses: ./.github/workflows/deploy.yaml
   #   with:
