@@ -103,28 +103,42 @@ jobs:
 
       - name: Install SonarCloud scanner
         run: |
-          dotnet tool install --global dotnet-sonarscanner
+          wget https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-5.0.1.3006-linux.zip
+          unzip sonar-scanner-cli-5.0.1.3006-linux.zip
+          sudo mv sonar-scanner-5.0.1.3006-linux /opt/sonar-scanner
+          echo "/opt/sonar-scanner/bin" >> $GITHUB_PATH
 
       - name: Building and testing with sonar
         run: |
+          
+          # Run SonarCloud analysis
           if [ "${{ github.event_name }}" = "pull_request" ]; then
-            dotnet sonarscanner begin /k:"fgajic_burgerapp" /o:"fgajic" /d:sonar.token="${{ secrets.SONAR_TOKEN }}" /d:sonar.pullrequest.key="${{ github.event.pull_request.number }}" /d:sonar.pullrequest.branch="${{ github.head_ref }}" /d:sonar.pullrequest.base="${{ github.base_ref }}" /d:sonar.java.coveragePlugin=jacoco /d:sonar.coverage.jacoco.xmlReportPaths="backend/target/site/jacoco/jacoco.xml" /d:sonar.javascript.lcov.reportPaths="frontend/coverage/lcov.info" /d:sonar.sources="backend/src,frontend/src" /d:sonar.java.binaries="backend/target/classes" /d:sonar.exclusions="**/node_modules/**,**/target/**,**/*.test.ts,**/*.test.tsx,**/*.spec.ts,**/*.spec.tsx"
+            sonar-scanner \
+              -Dsonar.projectKey=fgajic_burgerapp \
+              -Dsonar.organization=fgajic \
+              -Dsonar.sources=backend/src,frontend/src \
+              -Dsonar.java.binaries=backend/target/classes \
+              -Dsonar.java.coveragePlugin=jacoco \
+              -Dsonar.coverage.jacoco.xmlReportPaths=backend/target/site/jacoco/jacoco.xml \
+              -Dsonar.javascript.lcov.reportPaths=frontend/coverage/lcov.info \
+              -Dsonar.exclusions="**/node_modules/**,**/target/**,**/*.test.ts,**/*.test.tsx,**/*.spec.ts,**/*.spec.tsx" \
+              -Dsonar.pullrequest.key="${{ github.event.pull_request.number }}" \
+              -Dsonar.pullrequest.branch="${{ github.head_ref }}" \
+              -Dsonar.pullrequest.base="${{ github.base_ref }}" \
+              -Dsonar.login="${{ secrets.SONAR_TOKEN }}"
           else
-            dotnet sonarscanner begin /k:"fgajic_burgerapp" /o:"fgajic" /d:sonar.token="${{ secrets.SONAR_TOKEN }}" /d:sonar.branch.name="${{ github.ref_name }}" /d:sonar.java.coveragePlugin=jacoco /d:sonar.coverage.jacoco.xmlReportPaths="backend/target/site/jacoco/jacoco.xml" /d:sonar.javascript.lcov.reportPaths="frontend/coverage/lcov.info" /d:sonar.sources="backend/src,frontend/src" /d:sonar.java.binaries="backend/target/classes" /d:sonar.exclusions="**/node_modules/**,**/target/**,**/*.test.ts,**/*.test.tsx,**/*.spec.ts,**/*.spec.tsx"
+            sonar-scanner \
+              -Dsonar.projectKey=fgajic_burgerapp \
+              -Dsonar.organization=fgajic \
+              -Dsonar.sources=backend/src,frontend/src \
+              -Dsonar.java.binaries=backend/target/classes \
+              -Dsonar.java.coveragePlugin=jacoco \
+              -Dsonar.coverage.jacoco.xmlReportPaths=backend/target/site/jacoco/jacoco.xml \
+              -Dsonar.javascript.lcov.reportPaths=frontend/coverage/lcov.info \
+              -Dsonar.exclusions="**/node_modules/**,**/target/**,**/*.test.ts,**/*.test.tsx,**/*.spec.ts,**/*.spec.tsx" \
+              -Dsonar.branch.name="${{ github.ref_name }}" \
+              -Dsonar.login="${{ secrets.SONAR_TOKEN }}"
           fi
-          
-          # Run backend tests with coverage
-          cd backend
-          mvn clean test jacoco:report
-          cd ..
-          
-          # Run frontend tests with coverage
-          cd frontend
-          npm ci
-          npm run test:coverage
-          cd ..
-          
-          dotnet sonarscanner end /d:sonar.token="${{ secrets.SONAR_TOKEN }}"
 
   build-push:
     env:
