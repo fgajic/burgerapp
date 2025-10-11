@@ -125,7 +125,7 @@ jobs:
               -Dsonar.pullrequest.key="${{ github.event.pull_request.number }}" \
               -Dsonar.pullrequest.branch="${{ github.head_ref }}" \
               -Dsonar.pullrequest.base="${{ github.base_ref }}" \
-              -Dsonar.login="${{ secrets.SONAR_TOKEN }}"
+              -Dsonar.token="${{ secrets.SONAR_TOKEN }}"
           else
             sonar-scanner \
               -Dsonar.host.url=https://sonarcloud.io \
@@ -138,7 +138,7 @@ jobs:
               -Dsonar.javascript.lcov.reportPaths=frontend/coverage/lcov.info \
               -Dsonar.exclusions="**/node_modules/**,**/target/**,**/*.test.ts,**/*.test.tsx,**/*.spec.ts,**/*.spec.tsx" \
               -Dsonar.branch.name="${{ github.ref_name }}" \
-              -Dsonar.login="${{ secrets.SONAR_TOKEN }}"
+              -Dsonar.token="${{ secrets.SONAR_TOKEN }}"
           fi
 
   build-push:

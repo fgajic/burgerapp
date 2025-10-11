@@ -29,6 +29,10 @@ yarn-error.log*
 **/**/target/
 **/**/*.tfvars
 
+# Specific Terraform files and directories
+Infra/IaaC/3_realms/bourgerapp/staging/plan.out
+Infra/IaaC/without_modules/
+
 # GitHub Workflows
 .github/workflows/deploy.yaml
 .github/workflows/terraform-checks.yaml
