@@ -5,11 +5,6 @@ on:
       - master
     paths:
       - 'Infra/IaaC/**'
-  push:
-    branches:
-      - master
-    paths:
-      - 'Infra/IaaC/**'
   workflow_dispatch:
 
 concurrency:
