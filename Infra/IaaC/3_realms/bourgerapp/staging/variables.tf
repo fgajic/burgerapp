@@ -3,7 +3,7 @@ variable "common_tags" {
   type        = map(string)
   default = {
     environment = "staging-test"
-    owner       = "Filip Gajic"
+    owner       = "Filip"
     project     = "burgerapp"
   }
 }
